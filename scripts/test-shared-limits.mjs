@@ -53,7 +53,13 @@ const check = (name, cond) => {
 
 console.log("1) B tries to send while A's confirmation is open");
 const pendingA = A.send("shared test 1");
-await aInDialog; // deterministic: only start B once A is inside its confirmation
+// Deterministic: only start B once A is inside its confirmation. Sends check that Viber is
+// running BEFORE asking, so without Viber A never gets there: fail fast instead of hanging.
+const reached = await Promise.race([aInDialog.then(() => true), pendingA.then(() => false), sleep(30_000).then(() => false)]);
+if (!reached) {
+  console.log("FAIL  A never reached its confirmation: " + ((await Promise.race([pendingA, sleep(0)]))?.reason ?? "timeout") + "\n(open Viber Desktop: sends check it before asking)");
+  process.exit(1);
+}
 const b1 = await B.send("shared test 2");
 check("B is rejected as busy while A holds the lock", b1.status === "rejected" && /in progress/i.test(b1.reason));
 const a1 = await pendingA;

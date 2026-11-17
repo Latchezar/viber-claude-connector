@@ -1,16 +1,18 @@
-// Drives Viber's UI through bin/viberax: open the chat (search → OCR-locate → click),
+// Drives Viber's UI through build/viberax: open the chat (search → OCR-locate → click),
 // verify it is the right chat, put the text in the composer, press Enter.
 // Every irreversible step is preceded by a check; any failed check aborts before Enter.
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
 import { VIBERAX_BIN } from "./config.js";
+import { requireHelpers } from "./setup.js";
 import { feedMatch, isVerified, norm } from "./match.js";
 
 type Ax = { ok: boolean; error?: string; code?: string; [k: string]: any };
 
 export function ax(args: string[], stdin = "", timeoutMs = 20_000): Promise<Ax> {
-  if (!existsSync(VIBERAX_BIN)) {
-    return Promise.reject(new Error(`Native helper missing: ${VIBERAX_BIN}. Run \`npm run build\`.`));
+  try {
+    requireHelpers();
+  } catch (e) {
+    return Promise.reject(e);
   }
   return new Promise((resolve, reject) => {
     const child = execFile(VIBERAX_BIN, args, { timeout: timeoutMs, maxBuffer: 8 << 20 }, (err, stdout, stderr) => {

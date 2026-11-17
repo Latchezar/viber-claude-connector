@@ -1,9 +1,9 @@
-// Bridge to bin/viberdb — the C++ harness that opens viber.db read-only through
+// Bridge to build/viberdb — the C++ harness that opens viber.db read-only through
 // Viber's own Qt SQLite driver (which contains the SEE codec).
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
 import { userInfo } from "node:os";
 import { VIBER_APP, VIBERDB_BIN, findProfile } from "./config.js";
+import { requireHelpers } from "./setup.js";
 
 export interface Query {
   sql: string;
@@ -35,9 +35,7 @@ function keyCandidates(): string[] {
 let preferredKey = 0;
 
 export async function runQueries(queries: Query[], opts: { maxRows?: number; timeoutMs?: number } = {}): Promise<QueryResult[]> {
-  if (!existsSync(VIBERDB_BIN)) {
-    throw new Error(`Native helper missing: ${VIBERDB_BIN}. Run \`npm run build\` in the project folder.`);
-  }
+  requireHelpers();
   const profile = findProfile();
   const all = keyCandidates();
   // Try the key that worked last time first.

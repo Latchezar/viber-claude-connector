@@ -1,0 +1,30 @@
+{
+  "name": "viber-connector",
+  "version": "0.2.0",
+  "description": "Read your Viber Desktop chats, and send or like messages from Claude only after you confirm each one. macOS, runs locally, unofficial.",
+  "author": {
+    "name": "viber-claude-connector contributors",
+    "url": "https://github.com/Latchezar/viber-claude-connector"
+  },
+  "homepage": "https://github.com/Latchezar/viber-claude-connector",
+  "repository": "https://github.com/Latchezar/viber-claude-connector",
+  "license": "MIT",
+  "keywords": [
+    "viber",
+    "messaging",
+    "mcp",
+    "macos",
+    "accessibility"
+  ],
+  "documentationUrl": "https://github.com/Latchezar/viber-claude-connector#readme",
+  "supportUrl": "https://github.com/Latchezar/viber-claude-connector/issues",
+  "privacyPolicyUrl": "https://github.com/Latchezar/viber-claude-connector#privacy",
+  "mcpServers": {
+    "viber": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/index.js"
+      ]
+    }
+  }
+}

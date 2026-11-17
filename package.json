@@ -1,10 +1,17 @@
 {
   "name": "viber-claude-connector",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local stdio MCP server connecting Claude to Viber Desktop on macOS (read-only DB access + confirmed UI-automation sending)",
   "private": true,
   "license": "MIT",
-  "keywords": ["mcp", "model-context-protocol", "claude", "viber", "macos", "accessibility"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "viber",
+    "macos",
+    "accessibility"
+  ],
   "type": "module",
   "bin": {
     "viber-mcp": "dist/index.js"

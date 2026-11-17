@@ -4,8 +4,8 @@
 - Backs up the existing file first (claude_desktop_config.json.bak-YYYYmmdd-HHMMSS).
 - Only adds/replaces mcpServers.viber; every other key and server entry is kept as-is
   (verified after writing). Creates the file if it doesn't exist.
-- Absolute paths only: the node binary, the entry point and the state dir — the desktop
-  app does not load your shell (no nvm/PATH lookups at runtime).
+- Absolute paths only: the node binary and the entry point — the desktop app does not
+  load your shell (no nvm/PATH lookups at runtime).
 - Atomic write (temp file + rename), keeps the file's permissions, validates the JSON.
 
 usage: python3 scripts/install-desktop-config.py [--node /abs/path/to/node] [--confirm client|dialog] [--dry-run]
@@ -72,9 +72,9 @@ def main():
         "args": [str(entry_point)],
         "env": {
             # dialog: macOS dialog per send; client: the desktop app's own tool-approval prompt.
+            # (No state dir here: every copy uses the shared per-user default, so the send
+            # lock and rate limits are shared with Claude Code automatically.)
             "VIBER_CONFIRM": confirm,
-            # Same state dir as the Claude Code copy => shared send lock and rate limits.
-            "VIBER_MCP_STATE_DIR": str(ROOT / "state"),
         },
     }
 

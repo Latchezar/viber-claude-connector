@@ -10,6 +10,7 @@ import { confirmationMode } from "./confirm.js";
 import { STATE_DB } from "./ratelimit.js";
 import { registerReactTool } from "./react.js";
 import { registerSendTool } from "./send.js";
+import { BUILD_LOG, ensureHelpers } from "./setup.js";
 import { ax } from "./ui.js";
 import { formatLocal, parseWhen } from "./time.js";
 
@@ -238,10 +239,25 @@ server.server.oninitialized = () => {
   }
 };
 
+/** node:sqlite (shared send lock + limits) needs Node.js 22.13 or newer. */
+function nodeTooOld(): boolean {
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  return major < 22 || (major === 22 && minor < 13);
+}
+
 async function main() {
+  if (nodeTooOld()) {
+    console.error(`[viber-mcp] Node.js ${process.versions.node} is too old: this server needs Node.js 22.13 or newer. Install a current Node.js (https://nodejs.org) and restart.`);
+    process.exit(1);
+  }
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error(`[viber-mcp] ready (stdio) pid=${process.pid} node=${process.version} state=${STATE_DB}`);
+  const setup = ensureHelpers(); // first run: compiles the native helpers in the background
+  if (setup !== "ready") {
+    console.error(`[viber-mcp] native helpers: ${setup}${setup === "building" || setup === "failed" ? ` (log: ${BUILD_LOG})` : ""}`);
+    return;
+  }
   // Permission summary for whichever app launched us (TCC attributes it to that app).
   ax(["status"])
     .then((s) =>

@@ -1,15 +1,19 @@
 node_modules/
-dist/
+build/
 bin/
 vendor/
 *.log
 .DS_Store
 __pycache__/
 .env*
+# dist/ IS committed: plugin installs run it directly (no TypeScript build step there).
+# Run `npm run build` before committing changes to src/.
+dist/test/
+dist/**/*.map
 # editor settings (contain local paths)
 .idea/
 .vscode/
-# runtime state (send lock, rate limits, audit log)
+# runtime state of older versions (now in ~/Library/Application Support/viber-connector)
 state/
 # screenshots (may contain private chats)
 .claude_resources/

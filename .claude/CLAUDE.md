@@ -5,8 +5,10 @@ macOS UI automation after human confirmation. See README.md for architecture.
 
 ## Commands
 
-- `npm run build`: native helpers (`bin/viberdb`, `bin/viberax`) + TypeScript (`dist/`); the first build fetches
-  Qt headers matching Viber's bundled Qt into `vendor/`
+- `npm run build`: native helpers (`build/viberdb`, `build/viberax`) + TypeScript (`dist/`); the first build fetches
+  Qt headers matching Viber's bundled Qt into `~/Library/Caches/viber-connector`. **`dist/` is committed** (plugin
+  installs run it as-is): rebuild before committing changes to `src/`
+- `claude plugin validate . --strict`: plugin + marketplace manifests (`.claude-plugin/`); must pass before a release
 - `npm test`: unit tests (pure logic, no Viber needed)
 - `node scripts/smoke.mjs`: end-to-end read check over MCP (redacted output)
 - `node scripts/test-send-guards.mjs`: send guard rails (auto-declines, never sends)
@@ -19,7 +21,7 @@ macOS UI automation after human confirmation. See README.md for architecture.
 
 ## Hard rules
 
-- **Never write to `viber.db`** (or `data.db`/`config.db`). Read only through `bin/viberdb`.
+- **Never write to `viber.db`** (or `data.db`/`config.db`). Read only through `build/viberdb`.
 - **Never send a real message without the user's explicit, in-the-moment approval.** For tests, use
   "My Notes" and `scripts/send-test.mjs` (shows the native dialog; the user clicks Send). Never write a test
   client that auto-accepts the confirmation.
@@ -32,8 +34,11 @@ macOS UI automation after human confirmation. See README.md for architecture.
 - Before driving the Viber UI (search, clicks, typing), tell the user: they may be using Viber at that moment.
 - **Test MCP clients must identify as `claude-code` with an elicitation handler that declines.** Any other client
   name makes the server show the real macOS confirmation dialog on the user's screen.
-- **Shared state**: `state/state.db` holds the cross-process send lock, the limits and the audit log for *every*
-  copy (Claude Code + desktop app). Tests use a temporary `VIBER_MCP_STATE_DIR`; never delete or edit the real one.
+- **Shared state**: `~/Library/Application Support/viber-connector/state/state.db` holds the cross-process send lock,
+  the limits and the audit log for *every* copy (plugin, Claude Code, desktop app). Tests use a temporary
+  `VIBER_MCP_STATE_DIR`; never delete or edit the real one (or the legacy `<repo>/state`).
+- **Never put executables in a top-level `bin/`.** Claude Code adds a plugin's `bin/` to the Bash tool's PATH, which
+  would let the model call `viberax click`/`key` directly and bypass every confirmation. Helpers live in `build/`.
 - **Reactions are visible to others.** Live reaction tests only on a message the user names explicitly, through
   `scripts/react-test.mjs` (native dialog). If the chat changes before you act (new messages), re-confirm the target.
   Never click a ♡ twice and never auto-retry: it toggles.

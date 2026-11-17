@@ -1,6 +1,6 @@
 // ax-dump.swift — dump Viber Desktop's accessibility (AX) tree.
 //
-// usage: swiftc -O scripts/ax-dump.swift -o bin/ax-dump && bin/ax-dump [--depth N] [--max N] [--values] [--json]
+// usage: swiftc -O scripts/ax-dump.swift -o build/ax-dump && build/ax-dump [--depth N] [--max N] [--values] [--json]
 //   --values  include text values/titles verbatim (default: redacted to their length,
 //             because they contain chat names and message text)
 // Requires the calling app (Terminal/iTerm/IDE) to have Accessibility permission.

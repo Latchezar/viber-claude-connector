@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { STATE_DIR } from "./config.js";
+import { LEGACY_STATE_DIR, STATE_DIR } from "./config.js";
 
 const num = (v: string | undefined, d: number) => (v && Number.isFinite(Number(v)) ? Number(v) : d);
 
@@ -124,9 +124,32 @@ function migrate(d: DatabaseSync): void {
   }
 }
 
+/**
+ * Older versions kept the state inside the checkout (<repo>/state). Copy it once into the
+ * shared per-user folder, so limits and the audit log carry over. VACUUM INTO writes a
+ * consistent snapshot and refuses to overwrite: if another copy migrated first, we skip.
+ */
+function migrateLegacyState(): void {
+  if (process.env.VIBER_MCP_STATE_DIR || existsSync(STATE_DB)) return;
+  const legacy = join(LEGACY_STATE_DIR, "state.db");
+  if (!existsSync(legacy)) return;
+  try {
+    const { DatabaseSync: Database } = loadSqlite();
+    const src = new Database(legacy, { readOnly: true });
+    try {
+      src.exec(`VACUUM INTO '${STATE_DB.replace(/'/g, "''")}'`);
+    } finally {
+      src.close();
+    }
+  } catch {
+    /* already migrated by another copy, or unreadable: start fresh */
+  }
+}
+
 function store(): DatabaseSync {
   if (db) return db;
   mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
+  migrateLegacyState();
   const { DatabaseSync: Database } = loadSqlite();
   const d = new Database(STATE_DB);
   d.exec("PRAGMA busy_timeout = 2000");

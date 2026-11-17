@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dev helper: run read-only SQL against viber.db through bin/viberdb.
+"""Dev helper: run read-only SQL against viber.db through build/viberdb.
 
 usage: scripts/q.py "SELECT ..." [param ...]
        scripts/q.py -f queries.sql          (one statement per ';'-separated chunk)
@@ -30,7 +30,7 @@ def keys():
 
 def run(queries):
     req = {"db": find_db(), "keys": keys(), "queries": queries, "maxRows": 200}
-    p = subprocess.run([os.path.join(ROOT, "bin", "viberdb")], input=json.dumps(req),
+    p = subprocess.run([os.path.join(ROOT, "build", "viberdb")], input=json.dumps(req),
                        capture_output=True, text=True)
     out = json.loads(p.stdout)
     if not out.get("ok"):

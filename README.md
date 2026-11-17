@@ -17,12 +17,12 @@ and can't send as you), so this server:
 ## Privacy
 
 - Everything runs **on your Mac**. The server reads `viber.db` locally and talks only to the Claude app that started
-  it. It makes no network requests of its own.
+  it. Apart from the one-time build (which downloads Qt headers, see *Install*), it makes no network requests.
 - Whatever Claude reads (messages, names, numbers) becomes part of your Claude conversation, and Anthropic processes it
   like anything else you share with Claude. That includes your contacts' messages, so be deliberate about what you
   ask it to read.
-- Nothing is ever written to Viber's databases. The local audit log (`state/state.db`) stores chat ids, hashes and
-  lengths, never message text.
+- Nothing is ever written to Viber's databases. The local audit log (`state.db`, see *Guardrails*) stores chat ids,
+  hashes and lengths, never message text.
 
 ## Tools
 
@@ -41,26 +41,53 @@ Ambiguous references are rejected with a list of candidates, never guessed.
 ## Requirements
 
 - macOS (tested: macOS 26.6, Apple Silicon) with **Viber Desktop** installed and signed in (tested: 29.5.0).
-- Xcode command line tools (`xcode-select --install`: `clang++`, `swiftc`, Python 3), Node.js ≥ 22.13 (built-in `node:sqlite`).
+- Xcode command line tools (`xcode-select --install`), to compile two small native helpers on your Mac, and Node.js ≥ 22.13
+  on your `PATH` (built-in `node:sqlite`).
 - For sending, the app that **launches the server** needs the permissions below: your terminal/IDE for Claude Code
   (Terminal, iTerm, IntelliJ…), or Claude.app for the desktop app (see *Claude desktop app*):
   - **Accessibility**: System Settings → Privacy & Security → Accessibility;
   - **Screen Recording**: used to OCR the search-result row and the chat header, since neither is exposed via Accessibility.
 
-## Setup
+## Install
 
-Clone this repository, then from its folder:
+### As a Claude Code plugin (recommended)
+
+In Claude Code (2.1.275 or later):
+
+```
+/plugin install viber-connector --marketplace Latchezar/viber-claude-connector
+```
+
+Or in two steps, `/plugin marketplace add Latchezar/viber-claude-connector` and then
+`/plugin install viber-connector@viber-connector`. From a terminal:
+`claude plugin install viber-connector --marketplace Latchezar/viber-claude-connector`.
+
+Restart Claude Code. The first time the server starts, it compiles its two native helpers against the Qt inside your
+`Viber.app`. This happens once, in the background, and takes about 1–3 minutes. Until then the tools answer *"First-run
+setup…"*. The helpers rebuild automatically when needed: after a plugin update, or when a Viber update changes its Qt
+version. Update with `claude plugin update viber-connector@viber-connector` (restart afterwards). Then grant the
+permissions above to the app you run Claude Code in, and ask e.g. *"what's unread on Viber?"*.
+
+The plugin works in Claude Code in a terminal, an IDE, and the Code tab of the Claude desktop app. The desktop app's chat
+ignores plugins that start local servers; for chat (and agent mode), use the manual setup in *Claude desktop app*
+below. If you registered the server by hand before (`claude mcp add viber …`), remove that entry
+(`claude mcp remove viber`) so you don't run two copies.
+
+### From source
+
+For development, or for the desktop app's chat and agent mode. Clone this repository, then from its folder:
 
 ```bash
 npm install
-npm run build                   # bin/viberdb (C++), bin/viberax (Swift), dist/ (TypeScript)
+npm run build                   # build/viberdb (C++), build/viberax (Swift), dist/ (TypeScript)
 npm test                        # unit tests (no Viber needed)
 node scripts/smoke.mjs          # end-to-end read check over MCP stdio (prints counts, not content)
 ```
 
 The first build downloads the Qt headers that match the Qt inside your `Viber.app` (QtCore + QtSql only, a few MB,
-via [aqtinstall](https://github.com/miurahr/aqtinstall) in a throwaway venv) into `./vendor`. Nothing from Qt is
-linked statically: the helper uses Viber's own Qt libraries at runtime.
+via [aqtinstall](https://github.com/miurahr/aqtinstall) in a throwaway venv) into a per-user cache
+(`~/Library/Caches/viber-connector`). Nothing from Qt is linked statically: the helper uses Viber's own Qt libraries
+at runtime.
 
 Register with Claude Code (run from this folder; `local` scope = only when Claude runs here):
 
@@ -89,8 +116,7 @@ file, so the send lock and the pace limits apply across all of them (see Guardra
      "command": "/Users/<you>/.nvm/versions/node/v22.21.1/bin/node",
      "args": ["/Users/<you>/Documents/viber-claude-connector/dist/index.js"],
      "env": {
-       "VIBER_CONFIRM": "dialog",
-       "VIBER_MCP_STATE_DIR": "/Users/<you>/Documents/viber-claude-connector/state"
+       "VIBER_CONFIRM": "dialog"
      }
    }
    ```
@@ -141,7 +167,7 @@ The desktop app shows server status under Settings → Developer.
 
 ## How it works
 
-### Reading: `bin/viberdb` (C++)
+### Reading: `build/viberdb` (C++)
 
 On current macOS builds `viber.db` is encrypted with **SQLite SEE** (`AES-128` scheme). The codec lives inside Viber's
 Qt SQLite plugin (`Viber.app/Contents/PlugIns/sqldrivers/libqsqlite.dylib`), which exports no `sqlite3_*`
@@ -159,7 +185,7 @@ Read-only guarantees, layered:
 The DB is read live (including the WAL), so new messages appear immediately. Keys travel over stdin,
 never argv. The helper speaks JSON on stdin/stdout; all SQL lives in `src/repo.ts`.
 
-### Sending: `bin/viberax` (Swift) + `src/ui.ts`
+### Sending: `build/viberax` (Swift) + `src/ui.ts`
 
 Viber is a Qt Quick app. Its Accessibility tree exposes stable QML object paths (search field,
 message box `QQuickTextEdit`, `SendToolbarButton`, visible messages), but **not** the chat-list rows or the
@@ -220,13 +246,14 @@ Viber's window is the topmost window at that point; for example, the macOS Scree
   declined drafts in 10 min trigger a cool-down.
 - **Reactions** have their own human pace: at least 10 s apart, ≤ 20/hour, ≤ 60/day. They share the global lock and
   the decline cool-down with messages (3 declines of anything in 10 min trigger the cool-down).
-- **Shared across Claude apps.** The limits live in `state/state.db` (SQLite), not in memory. A send holds SQLite's
+- **Shared across Claude apps.** The limits live in `~/Library/Application Support/viber-connector/state/state.db`
+  (SQLite), not in memory, so every copy shares them, however it was installed. A send holds SQLite's
   write lock (`BEGIN IMMEDIATE`) from the limit check, through the confirmation dialog and delivery, until its
   outcome is recorded. If another copy tries to send meanwhile (e.g. Claude Code while the desktop app's dialog is
   open), it's rejected with "another send is in progress". If a process dies, the OS releases its lock, so there are
   no stale lock files. `scripts/test-shared-limits.mjs` checks this with two real server processes.
-- **Audit log.** `state/state.db` records the time, chat id, outcome, requesting client, text hash and length (not the text):
-  `sqlite3 -readonly state/state.db "SELECT datetime(ts/1000,'unixepoch','localtime'), chat_id, outcome, client, len FROM sends"`.
+- **Audit log.** `state.db` records the time, chat id, action, outcome, requesting client, text hash and length (not the text):
+  `sqlite3 -readonly ~/Library/Application\ Support/viber-connector/state/state.db "SELECT datetime(ts/1000,'unixepoch','localtime'), chat_id, action, outcome, client, len FROM sends"`.
 - **Read-only DB**, as described above.
 
 ## Configuration (environment variables)
@@ -237,7 +264,7 @@ Viber's window is the topmost window at that point; for example, the macOS Scree
 | `VIBER_DB` | newest `~/Library/Application Support/ViberPC/<phone>/viber.db` | DB to read |
 | `VIBER_USERNAME` | current login name | Login name used to derive the key (for a DB copied from another Mac) |
 | `VIBER_DB_HEXKEY` | — | Comma-separated captured `hexkey` values, if Viber changes its key scheme |
-| `VIBER_MCP_STATE_DIR` | `./state` | Shared state (`state.db`: send lock, limits, audit log). Must be the same for every copy |
+| `VIBER_MCP_STATE_DIR` | `~/Library/Application Support/viber-connector/state` | Shared state (`state.db`: send lock, limits, audit log). Must be the same for every copy, so leave it unset |
 | `VIBER_CONFIRM` | `auto` | `auto`: in-app form for Claude Code, macOS dialog for everything else. `dialog`: always the macOS dialog. `client`: no server-side confirmation; the client's own tool-approval prompt is the confirmation (exact recipient names required) |
 | `VIBER_MIN_SEND_INTERVAL_S` / `VIBER_MAX_SENDS_PER_HOUR` / `VIBER_MAX_SENDS_PER_DAY` | 30 / 10 / 40 | Pace limits |
 | `VIBER_MAX_TEXT_CHARS` | 2000 | Max message length |
@@ -247,10 +274,13 @@ Viber's window is the topmost window at that point; for example, the macOS Scree
 
 - **`no key candidate opened the database`**: Viber changed its key derivation. Capture the `PRAGMA hexkey`
   Viber issues (see GhostingBit/viber-export's `INTERNALS.md`) and pass it via `VIBER_DB_HEXKEY`.
-- **`QSQLITE driver not loadable` or crashes after a Viber update**: Viber's bundled Qt version changed. Re-run
-  `npm run build`: it detects the new version and fetches matching headers.
+- **Tools answer "First-run setup…"**: the native helpers are being compiled (once, about 1–3 minutes). The log is in
+  `build/build.log` inside the plugin or checkout folder. If setup failed, the tools show the last lines of that log;
+  the usual fix is `xcode-select --install`. The build is retried after 10 minutes, or run `npm run build` in that folder.
+- **`QSQLITE driver not loadable` or crashes after a Viber update**: Viber's bundled Qt version changed. The server
+  notices and rebuilds the helpers by itself; from a checkout you can also run `npm run build`.
 - **Send fails with `unverified` / `not_found`**: the chat name shown in Viber differs from the DB name, or
-  the UI layout changed. `bin/ax-dump` shows the current Accessibility tree; values are redacted unless you pass `--values`.
+  the UI layout changed. `build/ax-dump` shows the current Accessibility tree; values are redacted unless you pass `--values`.
 - **`occluded` / `not_frontmost`**: another window covered Viber, or focus changed mid-send. Nothing was
   sent, so just try again.
 - **Desktop app: server missing or "failed"**: check `~/Library/Logs/Claude/mcp.log` and `mcp-server-viber.log`.
@@ -264,7 +294,10 @@ Viber's window is the topmost window at that point; for example, the macOS Scree
 ```
 native/viberdb/viberdb.cpp   read-only DB harness (Qt, links Viber's frameworks)
 native/viberax/main.swift    AX/OCR/click primitives, one JSON object per command
-src/                         MCP server (TypeScript): index, repo (SQL), format, match, ui, send, confirm, ratelimit
+src/                         MCP server (TypeScript): index, repo (SQL), format, match, ui, send, react, confirm, ratelimit, setup
+dist/                        compiled server, committed: plugin installs run it as-is (rebuild before committing src/ changes)
+build/                       native helpers + build log/stamp (not committed; built on first start or by `npm run build`)
+.claude-plugin/              plugin.json (the MCP server) + marketplace.json (this repo as a plugin marketplace)
 scripts/q.py                 ad-hoc read-only SQL:  scripts/q.py "SELECT count(*) FROM Events"
 scripts/smoke.mjs            end-to-end read test over MCP (counts only; --show to print content)
 scripts/test-send-guards.mjs send_message guard tests (auto-declines; never sends)

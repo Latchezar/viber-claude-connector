@@ -1,0 +1,14 @@
+{
+  "name": "viber-connector",
+  "owner": { "name": "viber-claude-connector contributors" },
+  "description": "Unofficial Viber Desktop connector for Claude (macOS)",
+  "plugins": [
+    {
+      "name": "viber-connector",
+      "source": "./",
+      "description": "Read Viber Desktop chats; send and like messages after your confirmation (macOS).",
+      "category": "productivity",
+      "tags": ["viber", "messaging", "macos"]
+    }
+  ]
+}

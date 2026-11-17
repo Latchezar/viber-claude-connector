@@ -1,4 +1,4 @@
-// Data access: all SQL against viber.db lives here (read-only, via bin/viberdb).
+// Data access: all SQL against viber.db lives here (read-only, via build/viberdb).
 import { findProfile } from "./config.js";
 import { clean } from "./format.js";
 import { runQueries, toRows, type Query, type Row } from "./viberdb.js";
