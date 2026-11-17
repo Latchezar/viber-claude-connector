@@ -1,0 +1,18 @@
+node_modules/
+dist/
+bin/
+vendor/
+*.log
+.DS_Store
+__pycache__/
+.env*
+# editor settings (contain local paths)
+.idea/
+.vscode/
+# runtime state (send lock, rate limits, audit log)
+state/
+# screenshots (may contain private chats)
+.claude_resources/
+*.png
+*.jpg
+*.jpeg

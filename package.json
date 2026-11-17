@@ -1,0 +1,33 @@
+{
+  "name": "viber-claude-connector",
+  "version": "0.1.0",
+  "description": "Local stdio MCP server connecting Claude to Viber Desktop on macOS (read-only DB access + confirmed UI-automation sending)",
+  "private": true,
+  "license": "MIT",
+  "keywords": ["mcp", "model-context-protocol", "claude", "viber", "macos", "accessibility"],
+  "type": "module",
+  "bin": {
+    "viber-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build:native": "./scripts/build-native.sh",
+    "build:ts": "tsc -p tsconfig.json",
+    "build": "npm run build:native && npm run build:ts",
+    "start": "node dist/index.js",
+    "test": "npm run build:ts && node --test \"dist/test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "os": [
+    "darwin"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  }
+}
